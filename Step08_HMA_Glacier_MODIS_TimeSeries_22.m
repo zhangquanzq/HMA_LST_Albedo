@@ -5,11 +5,11 @@
 
 %% 标记和预设参数.
 % 指定数据类型的标记. 1表示MOD10A1, 2表示MYD10A1, 3表示MOD11A1, 4表示MYD11A1.
-flg1 = 3;
+flg1 = 1;
 % 指定昼夜的标记. 1表示白天, 2表示晚上.
 flg2 = 1;
 % 指定面积比例的标记. 1表示100, 2表示95, 3表示90, 4表示85, 5表示80.
-flg3 = 2;
+flg3 = 1;
 % 指定时间序列图横轴坐标类型的标记. 1表示月, 2表示日.
 flg4 = 1;
 
@@ -78,7 +78,7 @@ if ~exist(hmaMatDir, 'dir')
 end
 
 % 创建输出TIF文件的文件夹路径.
-modisMeanDir = fullfile(modisDir, sprintf('%s_4_HMAGlacier%s_Mean_TIF', dataType, pct));
+modisMeanDir = fullfile(modisDir, sprintf('%s_3_HMAGlacier%s_Mean_TIF', dataType, pct));
 if ~exist(modisMeanDir, 'dir')
     mkdir(modisMeanDir);
 end
@@ -151,12 +151,13 @@ minPctFidList = hmaMinPctLayer(minPctIndexLayer);
 staElevTable = staElevTable(minPctFidList + 1);  % FID从0开始，加1从1开始.
 elevMeanRecords = [staElevTable.MEAN]';
 elevPctRecords = [staElevTable.Area_Pct]';
-elevPctIndex = elevPctRecords >= str2double(pct) / 100;
+
+if strcmp(pct, '100'); pctValue = 0.9999996427; else; pctValue = str2double(pct) / 100; end
+elevPctIndex = elevPctRecords >= pctValue;
 
 [~, staSlpTable] = shaperead(hmaMinPctStaSlpPath);
 staSlpTable = staSlpTable(minPctFidList + 1);  % FID从0开始，加1从1开始.
 slpMeanRecords = [staSlpTable.MEAN]';
-% slpPctRecords = [staSlpTable.Area_Pct];
 
 topoMeanRecords = {elevMeanRecords, slpMeanRecords};
 
@@ -240,7 +241,7 @@ end
 
 %% 计算并输出MODIS冰川区LST/Albedo数据的年, 月平均值影像.
 for i = 1 : yearListN
-%     break
+    break
     yearStr = num2str(yearList(i));
     
     % 从Mat文件中读取MODIS LST或Albedo数据, 并做质量控制.
@@ -317,21 +318,31 @@ for i = 1 : yearListN
         regionName1 = regionList{j};
         regionName2 = replace(regionName1, '/', '_');
 
-        % 将按高程, 坡度分级统计的结果存储为Excel文件.
+        % 创建存储各时间序列图的文件夹.
+        figRegionDir = fullfile(figPctDir, regionName2);
+        if ~exist(figRegionDir, 'dir')
+            mkdir(figRegionDir);
+        end
+
+        % 将按高程, 坡度分级统计的结果存储为Excel文件, 并制图.
         for k = 1: length(topoList)
             topo = topoList{k}; edges = topoEdges{k}; unit = unitList{k};
+
+            % 分级.
+            regionIndex = strcmp(regionName1, regionRecords);
+            subModisMatrix = modisMatrix(regionIndex, :);
+            subTopoMeanRecords = topoMeanRecords{k}(regionIndex);
+            [topoBinsRange, topoBinsCount, topoDateTypes, topoDateCount, topoMeanMatrix] = ...
+                intervalMean(subModisMatrix, subTopoMeanRecords, edges, modisDateList, ...
+                dateType);
+
+            % 存Excel.
             lstXlsName = sprintf(lstXlsStr, regionName2, topo);
             albedoXlsName = sprintf(albedoXlsStr, regionName2, topo);
             xlsName = {albedoXlsName, lstXlsName};
             xlsPath = fullfile(tablePctDir, xlsName{round(flg1/2)});
             xlsExist = exist(xlsPath, 'file');
             if ~xlsExist || (xlsExist && ~ismember(yearStr, sheetnames(xlsPath)))
-                regionIndex = strcmp(regionName1, regionRecords);
-                subModisMatrix = modisMatrix(regionIndex, :);
-                subTopoMeanRecords = topoMeanRecords{k}(regionIndex);
-                [topoBinsRange, topoBinsCount, topoDateTypes, topoDateCount, topoMeanMatrix] = ...
-                    intervalMean(subModisMatrix, subTopoMeanRecords, edges, modisDateList, ...
-                    dateType);
                 topoBinsRangeN = length(topoBinsCount); topoDateTypeN = length(topoDateTypes);
                 topoBinsRangeCell = cell(topoBinsRangeN, 1);
                 for m = 1 : topoBinsRangeN
@@ -347,19 +358,11 @@ for i = 1 : yearListN
                 topoStaCell(3:end, 1) = topoBinsRangeCell;
                 topoStaCell(3:end, 2) = num2cell(topoBinsCount);
                 topoStaCell(3:end, 3:end) = num2cell(topoMeanMatrix);
-                writecell(topoStaCell, xlsPath, 'Sheet', yearStr);
-                fprintf('添加%s年统计值到%s\n', yearStr, xlsName{round(flg1/2)});
+                writecell(topoStaCell, xlsPath, 'Sheet', yearStr)
+                fprintf('添加%s年统计值到%s\n', yearStr, xlsName{round(flg1/2)})
             end
-        end
 
-        % 创建存储各时间序列图的文件夹.
-        figRegionDir = fullfile(figPctDir, regionName2);
-        if ~exist(figRegionDir, 'dir')
-            mkdir(figRegionDir);
-        end
-        % 高程, 坡度制图.
-        for k = 1: length(topoList)
-            topo = topoList{k};
+            % 制图.
             LstFigName = sprintf(lstFigStr, regionName2, yearStr, topo);
             albedoFigName = sprintf(albedoFigStr, regionName2, yearStr, topo);
             figName = {albedoFigName, LstFigName};
@@ -367,10 +370,12 @@ for i = 1 : yearListN
             if ~exist(figPath, 'file')
                 fig = tsFigure(topoDateTypes, topoMeanMatrix, topoBinsRange, topoBinsCount, ...
                     dateType, daynight, dataType, regionName1, yearStr, topo);
-                exportgraphics(fig, figPath); % print(f1, f1Path, '-dpng', '-r200');
+                %  exportgraphics(fig, figPath)
+                print(fig, figPath, '-dpng', '-r200')
+                fprintf('输出分级时间序列图 %s\n', figPath)
+                close all
             end
-        end
-        close all
+        end        
     end
 end
 
@@ -383,7 +388,7 @@ end
 p2 = polyfit(yearList, hmaYearMeanVector, 1);
 y1 = p2(1) * 2000 + p2(2); y2 = p2(1) * 2020 + p2(2);
 plot(yearList, hmaYearMeanVector, 'o-', [2000, 2020], [y1, y2], MarkerFaceColor='b');
-legend(dataName, 'Trend', Location='bestoutside', Orientation='horizontal')
+% legend(dataName, 'Trend', Location='bestoutside', Orientation='horizontal')
 xlabel('Year');
 
 if strcmp(dataName, 'LST')
@@ -410,7 +415,9 @@ end
 
 figPath = fullfile(figAnnualDir, figName);
 if ~exist(figPath, 'file')
-    exportgraphics(fig, figPath) % print(fig, figName, '-dpng', '-r200')
+%     exportgraphics(fig, figPath)
+    print(fig, figPath, '-dpng', '-r200')
+    fprintf('输出年际时间序列图 %s\n', figPath)
 end
 close all
 
@@ -517,7 +524,9 @@ end
 
 figPath = fullfile(figSeasonalDir, figName);
 if ~exist(figPath, 'file')
-    exportgraphics(fig, figPath) % print(fig, figName, '-dpng', '-r200')
+%     exportgraphics(fig, figPath)
+    print(fig, figPath, '-dpng', '-r200')
+    fprintf('输出季节时间序列图 %s\n', figPath)
 end
 close all
 
