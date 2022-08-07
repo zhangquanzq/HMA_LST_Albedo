@@ -7,7 +7,7 @@
 % 指定数据类型的标记. 1表示MOD10A1, 2表示MYD10A1, 3表示MOD11A1, 4表示MYD11A1.
 flg1 = 1;
 % 指定昼夜的标记. 1表示白天, 2表示晚上.
-flg2 = 1;
+flg2 = 2;
 % 指定面积比例的标记. 1表示100, 2表示95, 3表示90, 4表示85, 5表示80.
 flg3 = 1;
 % 指定时间序列图横轴坐标类型的标记. 1表示月, 2表示日.
@@ -116,10 +116,6 @@ end
 hmaMinPctRasterName = ['HMA_ModisPixel_', cellsize, '_rgi60_FID_', minPct, 'percent.tif'];
 hmaMinPctRasterPath = fullfile(hmaPixelPctRasterDir, hmaMinPctRasterName);
 
-% 各冰川面积比例像元FID编号的栅格文件.
-% hmaPctRasterName = ['HMA_ModisPixel_', cellsize, '_rgi60_FID_', pct, 'percent.tif'];
-% hmaPctRasterPath = fullfile(hmaPixelPctRasterDir, hmaPctRasterName);
-
 % 每个像元内高程, 坡度统计的矢量文件.
 hmaMinPctStaElevName = ['HMA_ModisPixel_', cellsize, '_sta_elev_', minPct, 'percent.shp'];
 hmaMinPctStaElevPath = fullfile(hmaPixelStaPctDir, hmaMinPctStaElevName);
@@ -150,16 +146,16 @@ minPctFidList = hmaMinPctLayer(minPctIndexLayer);
 [~, staElevTable] = shaperead(hmaMinPctStaElevPath);
 staElevTable = staElevTable(minPctFidList + 1);  % FID从0开始，加1从1开始.
 elevMeanRecords = [staElevTable.MEAN]';
-elevPctRecords = [staElevTable.Area_Pct]';
-
-if strcmp(pct, '100'); pctValue = 0.9999996427; else; pctValue = str2double(pct) / 100; end
-elevPctIndex = elevPctRecords >= pctValue;
 
 [~, staSlpTable] = shaperead(hmaMinPctStaSlpPath);
 staSlpTable = staSlpTable(minPctFidList + 1);  % FID从0开始，加1从1开始.
 slpMeanRecords = [staSlpTable.MEAN]';
 
 topoMeanRecords = {elevMeanRecords, slpMeanRecords};
+
+% 获取满足冰川面积百分比的像元编号.
+if strcmp(pct, '100'); pctValue = 0.9999996427; else; pctValue = str2double(pct) / 100; end
+validPctIndex = [staElevTable.Area_Pct]' >= pctValue;
 
 % 获取冰川分区名称列表.
 regionRecords = {staElevTable.FULL_NAME}';
@@ -247,14 +243,7 @@ for i = 1 : yearListN
     % 从Mat文件中读取MODIS LST或Albedo数据, 并做质量控制.
     fmtStr = {yearStr, [daynight, '_', yearStr]};
     modisMatPath = fullfile(hmaMatDir, sprintf(modisMatName, fmtStr{round(flg1/2)}));
-    load(modisMatPath, 'modisMatrix', 'modisDateList');  
-    if strcmp(dataName, 'LST')
-        load(modisMatPath, 'qcMatrix');
-        modisMatrix(~ismember(qcMatrix, qcValid)) = nan;
-    elseif strcmp(dataName, 'Albedo')
-        modisMatrix(modisMatrix == 0 | modisMatrix > 100) = nan;
-    end
-    modisMatrix(~elevPctIndex, :) = nan;  % 保留指定冰川面积比例的像元.
+    [modisMatrix, modisDateList] = loadModisMatrix(modisMatPath, dataName, validPctIndex, qcValid);
 
     % 创建输出TIF文件的年文件夹.
     modisYearFolder = [dataType, '_', yearStr, 'XXX_TIF'];
@@ -296,19 +285,13 @@ end
 %% 按年周期创建不同分区冰川表面温度的时间序列图, 按高程, 坡度统计.
 hmaYearMeanVector = zeros(yearListN, 1);
 for i = 1 : yearListN
+    break
     yearStr = num2str(yearList(i));
     
     % 从Mat文件中读取MODIS LST或Albedo数据, 并做质量控制.
     fmtStr = {yearStr, [daynight, '_', yearStr]};
     modisMatPath = fullfile(hmaMatDir, sprintf(modisMatName, fmtStr{round(flg1/2)}));
-    load(modisMatPath, 'modisMatrix', 'modisDateList');
-    if strcmp(dataName, 'LST')
-        load(modisMatPath, 'qcMatrix')
-        modisMatrix(~ismember(qcMatrix, qcValid)) = nan;
-    elseif strcmp(dataName, 'Albedo')
-        modisMatrix(modisMatrix == 0 | modisMatrix > 100) = nan;
-    end
-    modisMatrix(~elevPctIndex, :) = nan;  % 保留指定冰川面积比例的像元.
+    [modisMatrix, modisDateList] = loadModisMatrix(modisMatPath, dataName, validPctIndex, qcValid);
 
     % HMA地区整体年均值.
     hmaYearMeanVector(i) = mean(modisMatrix, 'all', 'omitnan');
@@ -424,46 +407,20 @@ close all
 %% 季节和年纪变化趋势图.
 % 季节变化趋势数据. 冬季为上一年度的12月和本年度的1, 2月.
 modisSeasonMeanMatrix = zeros(4, yearListN);
-for i = 1 : yearListN
+for i = 2 : yearListN
     % 上一年.
     if i ~= 1
-        yearStr0 = num2str(yearList(i-1));
-
-        % 从Mat文件中读取MODIS LST或Albedo数据, 并做质量控制.
-        fmtStr0 = {yearStr0, [daynight, '_', yearStr0]};
-        modisMatPath0 = fullfile(hmaMatDir, sprintf(modisMatName, fmtStr0{round(flg1/2)}));
-        modisMatStruct0 = load(modisMatPath0, 'modisMatrix', 'modisDateList');
-        modisDateList0 = modisMatStruct0.modisDateList;
+        yearStr0 = num2str(yearList(i-1)); fmtStr0 = {yearStr0, [daynight, '_', yearStr0]};
+        matPath0 = fullfile(hmaMatDir, sprintf(modisMatName, fmtStr0{round(flg1/2)}));
+        [modisMatrix0,modisDateList0] = loadModisMatrix(matPath0,dataName,validPctIndex,qcValid);
         modisMonthList0 = modisDateList0.Month;
-        modisMatrix0 = modisMatStruct0.modisMatrix;
-        if strcmp(dataName, 'LST')
-            qcMatStruct0 = load(modisMatPath0, 'qcMatrix');
-            qcMatrix0 = qcMatStruct0.qcMatrix;
-            modisMatrix0(~ismember(qcMatrix0, qcValid)) = nan;
-        elseif strcmp(dataName, 'Albedo')
-            modisMatrix0(modisMatrix0 == 0 | modisMatrix0 > 100) = nan;
-        end
-        modisMatrix0(~elevPctIndex, :) = nan;  % 保留指定冰川面积比例的像元.
     end
 
     % 当前年.
-    yearStr1 = num2str(yearList(i));
-
-    % 从Mat文件中读取MODIS LST或Albedo数据, 并做质量控制.
-    fmtStr1 = {yearStr1, [daynight, '_', yearStr1]};
-    modisMatPath1 = fullfile(hmaMatDir, sprintf(modisMatName, fmtStr1{round(flg1/2)}));
-    modisMatStruct1 = load(modisMatPath1, 'modisMatrix', 'modisDateList');
-    modisDateList1 = modisMatStruct1.modisDateList;
+    yearStr1 = num2str(yearList(i)); fmtStr1 = {yearStr1, [daynight, '_', yearStr1]};
+    matPath1 = fullfile(hmaMatDir, sprintf(modisMatName, fmtStr1{round(flg1/2)}));
+    [modisMatrix1,modisDateList1] = loadModisMatrix(matPath1,dataName,validPctIndex,qcValid);
     modisMonthList1 = modisDateList1.Month;
-    modisMatrix1 = modisMatStruct1.modisMatrix;
-    if strcmp(dataName, 'LST')
-        qcMatStruct1 = load(modisMatPath1, 'qcMatrix');
-        qcMatrix1 = qcMatStruct1.qcMatrix;
-        modisMatrix1(~ismember(qcMatrix1, qcValid)) = nan;
-    elseif strcmp(dataName, 'Albedo')
-        modisMatrix1(modisMatrix1 == 0 | modisMatrix1 > 100) = nan;
-    end
-    modisMatrix1(~elevPctIndex, :) = nan;  % 保留指定冰川面积比例的像元.
 
     % 若是第一年, 缺上一年12月数据, 冬季仅包括当前年1, 2月, 否则冬季包括上一年12月和当前年1, 2月.
     if i == 1
@@ -531,6 +488,19 @@ end
 close all
 
 %% 自定义函数.
+% 从Mat文件中读取数据质量控制后的MODIS LST/Albedo数据.
+function [modisMatrix, modisDateList] = loadModisMatrix(matPath, dataName, validPctIndex, qcValid)
+load(matPath, 'modisMatrix', 'modisDateList');
+if strcmp(dataName, 'LST')
+    load(matPath, 'qcMatrix');
+    modisMatrix(~ismember(qcMatrix, qcValid)) = nan;
+elseif strcmp(dataName, 'Albedo')
+    modisMatrix(modisMatrix == 0 | modisMatrix > 100) = nan;
+    modisMatrix = modisMatrix ./ 100;
+end
+modisMatrix(~validPctIndex, :) = nan;  % 保留指定冰川面积比例的像元.
+end
+
 % 按某一参数的统计值划分区间, 计算每一区间的均值.
 function [binsRange, binsCount, dateTypes,  dateCount, meanMatrix] = ...
     intervalMean(dataMatrix, staRecords, edges, datetimeList, dateType)

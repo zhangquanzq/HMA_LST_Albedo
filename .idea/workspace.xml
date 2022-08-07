@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="6eef351f-8e1f-41ab-9862-fc7ce0c3a3af" name="变更" comment="">
-      <change afterPath="$PROJECT_DIR$/Step08_HMA_Glacier_MODIS_TimeSeries_21.m" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Step08_HMA_Glacier_MODIS_TimeSeries_22b.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Step08_HMA_Glacier_MODIS_TimeSeries_22.m" beforeDir="false" afterPath="$PROJECT_DIR$/Step08_HMA_Glacier_MODIS_TimeSeries_22.m" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -16,17 +18,20 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProjectId" id="2Cs4wWfq60LZX6drYIXEBaKLehk" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
-    "last_opened_file_path": "E:/HMA_LST_Albedo/Code/Matlab"
+    "last_opened_file_path": "F:/AMSR2_MODIS_AW_LST/Code"
   }
 }]]></component>
   <component name="RecentsManager">
@@ -43,10 +48,32 @@
       <option name="presentableId" value="Default" />
       <updated>1659578196312</updated>
       <workItem from="1659578197486" duration="462000" />
+      <workItem from="1659681044831" duration="936000" />
+      <workItem from="1659693279758" duration="60000" />
     </task>
+    <task id="LOCAL-00001" summary="更新">
+      <created>1659681286194</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1659681286194</updated>
+    </task>
+    <task id="LOCAL-00002" summary="更新">
+      <created>1659681335333</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1659681335333</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+    <MESSAGE value="更新" />
+    <option name="LAST_COMMIT_MESSAGE" value="更新" />
   </component>
 </project>
